@@ -80,26 +80,44 @@ Traditional systems are:
 
 ## ⚡ Real-Time Architecture
 
-```text
-[ Stadium Sensors / Inputs ]
-            ↓
-     Firebase Firestore
-            ↓
-   (Real-time listeners)
-            ↓
-        Next.js UI
-            ↓
-        FastAPI Backend
-            ↓
-        Vertex AI Agent
-```
+The system follows a real-time, event-driven architecture where live stadium data flows seamlessly through Firebase and is processed by AI-driven backend services.
 
-### Key Properties:
+<p align="center">
+  <img src="./assets/architecture.png" alt="CrowdFlow AI Architecture Diagram" width="900"/>
+</p>
 
-* ⚡ Sub-second updates (Firestore listeners)
-* 🔄 Reactive UI (no manual refresh)
-* 🧠 AI-driven decisions
-* ☁️ Cloud-native scalable design
+### 🔄 Data Flow Explanation
+
+1. **User Devices**
+
+   * Mobile, Web, and Voice interfaces send user queries and receive updates
+
+2. **AI Backend & Services**
+
+   * Context-aware AI assistant processes requests
+   * Recommendation engine provides intelligent suggestions
+   * Crowd analytics + queue prediction + routing logic operate in real-time
+
+3. **Google Cloud Services**
+
+   * Firebase provides real-time data streaming
+   * Vertex AI powers intelligent decision-making
+   * Google Maps enables routing and navigation
+
+4. **Admin Dashboard**
+
+   * Monitors live crowd heatmaps
+   * Tracks queue statistics
+   * Handles emergency alerts
+
+---
+
+### ⚡ Key System Properties
+
+* 🔄 Real-time updates via Firestore listeners
+* 🧠 AI-driven decision making using Vertex AI
+* 📡 Event-driven architecture
+* ☁️ Fully scalable on Google Cloud
 
 ---
 
@@ -202,22 +220,6 @@ npm run dev
 ```bash
 docker-compose up --build
 ```
-
----
-
-## 🔐 Environment Variables
-
-### Backend
-
-* GOOGLE_APPLICATION_CREDENTIALS
-* FIREBASE_PROJECT_ID
-* VERTEX_AI_PROJECT_ID
-
-### Frontend
-
-* NEXT_PUBLIC_FIREBASE_CONFIG
-* NEXT_PUBLIC_API_URL
-
 ---
 
 ## 🧠 Future Enhancements
@@ -227,15 +229,6 @@ docker-compose up --build
 * 🎥 Computer vision for crowd density
 * 🔊 Voice-based assistant
 * 📡 IoT sensor integration
-
----
-
-## 🏆 Why This Project Stands Out
-
-* Real-time system (not static)
-* Agentic AI (not rule-based chatbot)
-* Scalable architecture
-* Practical real-world use case
 
 ---
 
