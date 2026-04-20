@@ -13,9 +13,12 @@ class CrowdService:
         raw_data = await self.repository.get_all_zones()
         
         heatmap_locations = {}
-        for location_id, density in raw_data.items():
+        for location_id, data in raw_data.items():
+            density = data["density"]
             heatmap_locations[location_id] = CrowdData(
-                location_id=location_id,
+                name=data["name"],
+                lat=data["lat"],
+                lng=data["lng"],
                 density_percentage=density,
                 status_label=get_status_label(density)
             )
@@ -30,11 +33,12 @@ class CrowdService:
         raw_data = await self.repository.get_all_zones()
         
         # Logic to find minimum density
-        best_location = min(raw_data.items(), key=lambda x: x[1])
-        location_id, min_density = best_location
+        best_location = min(raw_data.items(), key=lambda x: x[1]["density"])
+        location_id, data = best_location
+        min_density = data["density"]
         status_label = get_status_label(min_density)
         
-        message = f"We recommend {location_id.replace('_', ' ').title()} as it is currently the least crowded with only {min_density}% capacity."
+        message = f"We recommend {data['name']} as it is currently the least crowded with only {min_density}% capacity."
         
         return BestLocationResponse(
             best_location_id=location_id,

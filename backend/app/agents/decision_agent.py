@@ -56,33 +56,50 @@ class DecisionAgent:
         }
 
     async def process_query(self, query: str, context: dict) -> ChatResponse:
-        """Uses Vertex AI to understand natural language intent and execute tools."""
+        """Uses Vertex AI to understand natural language intent, process context, and execute tools."""
         user_location = context.get("user_location", "entrance") if context else "entrance"
+        user_lat = context.get("latitude", 0.0)
+        user_lng = context.get("longitude", 0.0)
         
         # Mapping of tool names to handlers
         tool_handlers = {
-            "get_crowd_heatmap": self._handle_get_crowd_heatmap,
-            "get_best_queue": self._handle_get_best_queue,
             "get_best_route": self._handle_get_best_route,
             "get_recommendation": self._handle_get_recommendation,
         }
         
-        logger.info(f"[DecisionAgent] Processing query: '{query}' from '{user_location}'")
+        logger.info(f"[DecisionAgent] Processing query: '{query}' from '{user_location}' ({user_lat}, {user_lng})")
+        
+        # Pre-fetch snapshots
+        heatmap = await self.crowd_service.get_heatmap()
+        crowd_snapshot = [{"name": data.name, "density": data.density_percentage} for data in heatmap.locations.values()]
+        
+        queues_response = await self.queue_service.get_all_queues()
+        queue_snapshot = [{"name": q.name, "wait_time": q.wait_time_minutes} for q in queues_response.queues]
         
         try:
-            if not self.vertex_client.is_active:
-                logger.warning("[DecisionAgent] Vertex AI is inactive. Forcing fallback mode.")
-                return self._fallback_response()
-                
             from vertexai.generative_models import Part
+            import json
             
             chat = self.vertex_client.model.start_chat()
             tools = self.vertex_client.define_tools()
             
-            system_prompt = f"You are CrowdFlow AI, a helpful stadium assistant. User location: {user_location}. Be concise."
+            system_prompt = f"""You are CrowdFlow AI, a highly intelligent stadium assistant.
+You MUST respond using valid JSON with exactly these three keys:
+- "action": a brief sentence describing what the user should do.
+- "reason": a short explanation of why.
+- "data_references": a list of string names of zones or queues that influenced this decision.
+
+Current Context:
+- User Location string: {user_location}
+- User Coordinates: lat={user_lat}, lng={user_lng}
+- Crowd Snapshot: {crowd_snapshot}
+- Queue Snapshot: {queue_snapshot}
+
+If the user asks for the fastest route or best recommendation, you MAY call a tool if you need exact routing or complex algorithmic calculation, OR you can answer directly based on the context provided.
+Be concise. ALWAYS RETURN ONLY VALID JSON."""
             
             # 1. Ask the LLM what to do
-            logger.info("[DecisionAgent] Sending initial request to Vertex AI...")
+            logger.info("[DecisionAgent] Sending initial request to Vertex AI with full context...")
             response = chat.send_message(f"{system_prompt}\nUser Query: {query}", tools=[tools])
             
             # 2. Check if LLM requested a tool execution
@@ -95,37 +112,39 @@ class DecisionAgent:
                 
                 handler = tool_handlers.get(func_name)
                 if handler:
-                    # Execute tool to get raw JSON data
                     tool_result = await handler(args, user_location)
                     logger.info(f"[DecisionAgent] Tool execution success. Result: {tool_result}")
                     
-                    # 3. Send data BACK to LLM to generate dynamic text
-                    logger.info("[DecisionAgent] Sending data back to LLM for dynamic text generation...")
+                    # Send data BACK to LLM
                     final_response = chat.send_message(
-                        Part.from_function_response(
-                            name=func_name,
-                            response={"content": tool_result}
-                        ),
+                        Part.from_function_response(name=func_name, response={"content": tool_result}),
                         tools=[tools]
                     )
-                    logger.info(f"[DecisionAgent] Final AI Response: {final_response.text}")
-                    return ChatResponse(response=final_response.text, action_taken=func_name)
+                    text_response = final_response.text
                 else:
-                    logger.warning(f"[DecisionAgent] Unknown tool requested: {func_name}")
-                    return self._fallback_response()
-                    
-            # 4. Handle Direct LLM Text Response
-            logger.info(f"[DecisionAgent] Vertex AI responded directly: {response.text}")
-            return ChatResponse(response=response.text, action_taken="direct_text_response")
+                    text_response = '{"action": "Error", "reason": "Unknown tool called.", "data_references": []}'
+            else:
+                text_response = response.text
+                
+            # 3. Parse JSON response
+            logger.info(f"[DecisionAgent] Raw LLM Text: {text_response}")
+            try:
+                # Strip potential markdown blocks
+                clean_text = text_response.replace("```json", "").replace("```", "").strip()
+                parsed = json.loads(clean_text)
+                return ChatResponse(
+                    action=parsed.get("action", "Provide info"),
+                    reason=parsed.get("reason", "Based on your request."),
+                    data_references=parsed.get("data_references", [])
+                )
+            except json.JSONDecodeError:
+                logger.error("Failed to parse JSON from LLM. Falling back to plain text.")
+                return ChatResponse(
+                    action=text_response[:50], 
+                    reason=text_response[50:150], 
+                    data_references=[]
+                )
             
         except Exception as e:
             logger.error(f"[DecisionAgent] AI execution failed: {e}")
-            # This captures 403 Billing Errors and gracefully defaults to offline mode
-            return self._fallback_response()
-
-    def _fallback_response(self) -> ChatResponse:
-        """Safe fallback mechanism preventing system crash."""
-        return ChatResponse(
-            response="I am currently operating in offline mode. Please check the screens for manual updates.",
-            action_taken="fallback_safe_response"
-        )
+            raise

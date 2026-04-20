@@ -1,3 +1,4 @@
+from typing import Optional
 from app.domain.routing.logic import calculate_best_route
 from app.integrations.maps import GoogleMapsClient
 from app.models.schemas import RouteResponse
@@ -9,7 +10,15 @@ class RoutingService:
         self.crowd_service = crowd_service
         self.maps_client = maps_client
 
-    async def get_route(self, start: str, destination: str) -> RouteResponse:
+    async def get_route(
+        self, 
+        start: str, 
+        destination: str,
+        start_lat: Optional[float] = None,
+        start_lng: Optional[float] = None,
+        dest_lat: Optional[float] = None,
+        dest_lng: Optional[float] = None
+    ) -> RouteResponse:
         """Fetch the most optimal path to a destination considering crowds."""
         
         # 1. Fetch current crowd data to influence route
@@ -21,8 +30,10 @@ class RoutingService:
         result = calculate_best_route(start, destination, crowd_data)
         
         # 3. Call Google Maps API to enrich the result with real distance and time
-        # In a real app, you might map the 'start' and 'destination' to exact lat/lngs first
-        map_info = self.maps_client.get_directions(start, destination)
+        maps_origin = f"{start_lat},{start_lng}" if start_lat and start_lng else start
+        maps_dest = f"{dest_lat},{dest_lng}" if dest_lat and dest_lng else destination
+        
+        map_info = self.maps_client.get_directions(maps_origin, maps_dest)
         
         # Combine Maps Data with Logic 
         if map_info["status"] == "ok":
@@ -43,6 +54,12 @@ class RoutingService:
             route_description=route_desc
         )
 
-    async def get_best_exit(self, current_location: str) -> RouteResponse:
+    async def get_best_exit(self, current_location: str, lat: Optional[float] = None, lng: Optional[float] = None) -> RouteResponse:
         """Calculate the fastest path out of the stadium."""
-        return await self.get_route(start=current_location, destination="nearest_exit")
+        # Assume nearest exit coordinates if needed, or fallback to string
+        return await self.get_route(
+            start=current_location, 
+            destination="nearest_exit",
+            start_lat=lat,
+            start_lng=lng
+        )

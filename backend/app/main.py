@@ -2,7 +2,6 @@ import time
 import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1.routes import chat, crowd, queue, routing, recommendation
 from app.core.config import settings
 from app.models.schemas import StandardResponse
 
@@ -36,6 +35,8 @@ def create_app() -> FastAPI:
         return response
 
     # Include API routers
+    from app.api.v1.routes import chat, crowd, queue, routing, recommendation, dashboard
+    app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
     app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
     app.include_router(crowd.router, prefix="/api/v1/crowd", tags=["crowd"])
     app.include_router(queue.router, prefix="/api/v1/queue", tags=["queue"])

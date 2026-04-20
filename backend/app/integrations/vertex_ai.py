@@ -31,18 +31,6 @@ class VertexAIClient:
 
     def define_tools(self) -> Tool:
         """Defines the functions the LLM is allowed to call."""
-        get_crowd_heatmap_func = FunctionDeclaration(
-            name="get_crowd_heatmap",
-            description="Fetch the current crowd density levels and heatmap of the entire stadium.",
-            parameters={"type": "object", "properties": {}}
-        )
-        
-        get_best_queue_func = FunctionDeclaration(
-            name="get_best_queue",
-            description="Find the food stall or gate with the shortest queue and fastest wait time.",
-            parameters={"type": "object", "properties": {}}
-        )
-        
         get_best_route_func = FunctionDeclaration(
             name="get_best_route",
             description="Find the best walking route to a destination avoiding crowds.",
@@ -63,8 +51,6 @@ class VertexAIClient:
         
         stadium_tools = Tool(
             function_declarations=[
-                get_crowd_heatmap_func,
-                get_best_queue_func,
                 get_best_route_func,
                 get_recommendation_func
             ]

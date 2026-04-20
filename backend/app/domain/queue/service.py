@@ -14,7 +14,12 @@ class QueueService:
         
         for q in raw_queues:
             wait_time = estimate_wait_time(q["people"], q["service_rate"])
-            enriched_queues.append(QueueItem(name=q["name"], wait_time_minutes=wait_time))
+            enriched_queues.append(QueueItem(
+                name=q["name"], 
+                lat=q.get("lat", 0.0), 
+                lng=q.get("lng", 0.0), 
+                wait_time_minutes=wait_time
+            ))
             
         return QueueResponse(queues=enriched_queues)
 
